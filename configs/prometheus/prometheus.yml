@@ -1,0 +1,44 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: []
+
+rule_files: []
+
+scrape_configs:
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  - job_name: "api-gateway"
+    static_configs:
+      - targets: ["api-gateway:8080"]
+    metrics_path: /metrics
+
+  - job_name: "auth"
+    static_configs:
+      - targets: ["auth:8081"]
+    metrics_path: /metrics
+
+  - job_name: "messaging"
+    static_configs:
+      - targets: ["messaging:8082"]
+    metrics_path: /metrics
+
+  - job_name: "user"
+    static_configs:
+      - targets: ["user:8083"]
+    metrics_path: /metrics
+
+  - job_name: "nats"
+    static_configs:
+      - targets: ["nats:8222"]
+    metrics_path: /varz
+
+  - job_name: "redis"
+    static_configs:
+      - targets: ["redis:6379"]

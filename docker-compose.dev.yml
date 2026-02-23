@@ -1,0 +1,129 @@
+# Development override - Hot-reload enabled for all services
+# Usage: docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+
+services:
+  # =============================================================================
+  # MICROSERVICES WITH HOT-RELOAD
+  # =============================================================================
+  api-gateway:
+    build:
+      context: ../ReTiCh-API-Gateway
+      dockerfile: Dockerfile.dev
+    volumes:
+      - ../ReTiCh-API-Gateway:/app
+      - api-gateway-tmp:/app/tmp
+    environment:
+      - PORT=8080
+      - AUTH_SERVICE_URL=http://auth:8081
+      - USER_SERVICE_URL=http://user:8083
+      - MESSAGING_SERVICE_URL=http://messaging:8082
+      - NATS_URL=nats://nats:4222
+      - REDIS_URL=redis:6379
+      - LOG_LEVEL=debug
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  auth:
+    build:
+      context: ../ReTiCh-Auth
+      dockerfile: Dockerfile.dev
+    volumes:
+      - ../ReTiCh-Auth:/app
+      - auth-tmp:/app/tmp
+    environment:
+      - PORT=8081
+      - DATABASE_URL=postgres://retich:retich_secret@postgres:5432/retich_auth?sslmode=disable
+      - REDIS_URL=redis:6379
+      - JWT_SECRET=dev-secret-key
+      - LOG_LEVEL=debug
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8081/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  messaging:
+    build:
+      context: ../ReTiCh-Messaging
+      dockerfile: Dockerfile.dev
+    volumes:
+      - ../ReTiCh-Messaging:/app
+      - messaging-tmp:/app/tmp
+    environment:
+      - PORT=8082
+      - NATS_URL=nats://nats:4222
+      - REDIS_URL=redis:6379
+      - DATABASE_URL=postgres://retich:retich_secret@postgres:5432/retich_messaging?sslmode=disable
+      - LOG_LEVEL=debug
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8082/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  user:
+    build:
+      context: ../ReTiCh-User
+      dockerfile: Dockerfile.dev
+    volumes:
+      - ../ReTiCh-User:/app
+      - user-tmp:/app/tmp
+    environment:
+      - PORT=8083
+      - DATABASE_URL=postgres://retich:retich_secret@postgres:5432/retich_users?sslmode=disable
+      - REDIS_URL=redis:6379
+      - LOG_LEVEL=debug
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8083/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  client:
+    build:
+      context: ../ReTiCh-Client
+      dockerfile: Dockerfile.dev
+    volumes:
+      - ../ReTiCh-Client:/app
+      - /app/node_modules
+    environment:
+      - VITE_API_URL=http://localhost:8080
+    ports:
+      - "5173:5173"
+    command: npm run dev -- --host
+
+  # =============================================================================
+  # INFRASTRUCTURE (no changes, just remove resource limits for dev)
+  # =============================================================================
+  postgres:
+    deploy:
+      resources: {}
+
+  redis:
+    deploy:
+      resources: {}
+
+  nats:
+    deploy:
+      resources: {}
+
+  prometheus:
+    deploy:
+      resources: {}
+
+  grafana:
+    deploy:
+      resources: {}
+
+volumes:
+  api-gateway-tmp:
+  auth-tmp:
+  messaging-tmp:
+  user-tmp:
