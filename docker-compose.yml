@@ -1,0 +1,319 @@
+services:
+  # =============================================================================
+  # MICROSERVICES
+  # =============================================================================
+  api-gateway:
+    build:
+      context: ../ReTiCh-API-Gateway
+      dockerfile: Dockerfile
+    image: ghcr.io/retich-corp/api-gateway:${TAG:-latest}
+    container_name: retich-api-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
+      - AUTH_SERVICE_URL=http://auth:8081
+      - USER_SERVICE_URL=http://user:8083
+      - MESSAGING_SERVICE_URL=http://messaging:8082
+      - NATS_URL=nats://nats:4222
+      - REDIS_URL=redis:6379
+    depends_on:
+      nats:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 512M
+        reservations:
+          cpus: "0.25"
+          memory: 128M
+    networks:
+      - retich-network
+    restart: unless-stopped
+
+  auth:
+    build:
+      context: ../ReTiCh-Auth
+      dockerfile: Dockerfile
+    image: ghcr.io/retich-corp/auth:${TAG:-latest}
+    container_name: retich-auth
+    ports:
+      - "8081:8081"
+    environment:
+      - PORT=8081
+      - DATABASE_URL=postgres://retich:retich_secret@postgres:5432/retich_auth?sslmode=disable
+      - REDIS_URL=redis:6379
+      - JWT_SECRET=${JWT_SECRET:-your-secret-key-change-in-production}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8081/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+        reservations:
+          cpus: "0.1"
+          memory: 64M
+    networks:
+      - retich-network
+    restart: unless-stopped
+
+  messaging:
+    build:
+      context: ../ReTiCh-Messaging
+      dockerfile: Dockerfile
+    image: ghcr.io/retich-corp/messaging:${TAG:-latest}
+    container_name: retich-messaging
+    ports:
+      - "8082:8082"
+    environment:
+      - PORT=8082
+      - NATS_URL=nats://nats:4222
+      - REDIS_URL=redis:6379
+      - DATABASE_URL=postgres://retich:retich_secret@postgres:5432/retich_messaging?sslmode=disable
+    depends_on:
+      nats:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8082/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 1G
+        reservations:
+          cpus: "0.5"
+          memory: 256M
+    networks:
+      - retich-network
+    restart: unless-stopped
+
+  user:
+    build:
+      context: ../ReTiCh-User
+      dockerfile: Dockerfile
+    image: ghcr.io/retich-corp/user:${TAG:-latest}
+    container_name: retich-user
+    ports:
+      - "8083:8083"
+    environment:
+      - PORT=8083
+      - DATABASE_URL=postgres://retich:retich_secret@postgres:5432/retich_users?sslmode=disable
+      - REDIS_URL=redis:6379
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8083/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+        reservations:
+          cpus: "0.1"
+          memory: 64M
+    networks:
+      - retich-network
+    restart: unless-stopped
+
+  client:
+    build:
+      context: ../ReTiCh-Client
+      dockerfile: Dockerfile
+    image: ghcr.io/retich-corp/client:${TAG:-latest}
+    container_name: retich-client
+    ports:
+      - "5173:80"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:80/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - retich-network
+    restart: unless-stopped
+
+  # =============================================================================
+  # INFRASTRUCTURE
+  # =============================================================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: retich-postgres
+    ports:
+      - "5433:5432"
+    environment:
+      - POSTGRES_USER=retich
+      - POSTGRES_PASSWORD=retich_secret
+      - POSTGRES_MULTIPLE_DATABASES=retich_auth,retich_users,retich_messaging
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./configs/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U retich"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 2G
+        reservations:
+          cpus: "0.5"
+          memory: 512M
+    networks:
+      - retich-network
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: retich-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 512M
+        reservations:
+          cpus: "0.25"
+          memory: 128M
+    networks:
+      - retich-network
+    restart: unless-stopped
+
+  nats:
+    image: nats:2.10-alpine
+    container_name: retich-nats
+    ports:
+      - "4222:4222"
+      - "8222:8222"
+    command: >
+      --name retich-nats
+      --http_port 8222
+      --js
+      --sd /data
+    volumes:
+      - nats_data:/data
+      - ./configs/nats/nats.conf:/etc/nats/nats.conf:ro
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8222/healthz"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 1G
+        reservations:
+          cpus: "0.5"
+          memory: 256M
+    networks:
+      - retich-network
+    restart: unless-stopped
+
+  # =============================================================================
+  # MONITORING
+  # =============================================================================
+  prometheus:
+    image: prom/prometheus:v2.48.0
+    container_name: retich-prometheus
+    ports:
+      - "9090:9090"
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.console.libraries=/etc/prometheus/console_libraries"
+      - "--web.console.templates=/etc/prometheus/consoles"
+      - "--web.enable-lifecycle"
+    volumes:
+      - ./configs/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - retich-network
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:10.2.2
+    container_name: retich-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - ./configs/grafana/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro
+      - ./configs/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:3000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - retich-network
+    restart: unless-stopped
+
+networks:
+  retich-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
+
+volumes:
+  postgres_data:
+  redis_data:
+  nats_data:
+  prometheus_data:
+  grafana_data:
