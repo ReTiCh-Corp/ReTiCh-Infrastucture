@@ -38,42 +38,36 @@ go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@lat
 
 ## Démarrage rapide
 
-### 1. Cloner tous les repos
+### Installation automatique (recommandé)
 
 ```bash
+# Cloner le repo infrastructure
 git clone git@github.com:ReTiCh-Corp/ReTiCh-Infrastucture.git
-git clone git@github.com:ReTiCh-Corp/ReTiCh-API-Gateway.git
-git clone git@github.com:ReTiCh-Corp/ReTiCh-Auth.git
-git clone git@github.com:ReTiCh-Corp/ReTiCh-Messaging.git
-git clone git@github.com:ReTiCh-Corp/ReTiCh-User.git
-git clone git@github.com:ReTiCh-Corp/ReTiCh-Client.git
-```
-
-### 2. Configuration
-
-```bash
 cd ReTiCh-Infrastucture
-cp .env.example .env
-# Modifier .env selon vos besoins
+
+# Installation complète : clone tous les repos, lance les services, exécute les migrations
+make setup
 ```
 
-### 3. Lancer les services
+### Installation manuelle
 
 ```bash
-# Production
-make up
+# 1. Cloner le repo infrastructure
+git clone git@github.com:ReTiCh-Corp/ReTiCh-Infrastucture.git
+cd ReTiCh-Infrastucture
 
-# Développement (avec hot-reload)
-make up-dev
-```
+# 2. Cloner tous les autres repos + configurer .env
+make install
 
-### 4. Exécuter les migrations
+# 3. Lancer les services
+make up          # Production
+make up-dev      # Développement (avec hot-reload)
 
-```bash
+# 4. Exécuter les migrations
 make migrate-all
 ```
 
-### 5. Vérifier que tout fonctionne
+### Vérifier que tout fonctionne
 
 ```bash
 make ps
@@ -90,6 +84,15 @@ curl http://localhost:8083/health  # User
 ```bash
 make help  # Afficher toutes les commandes
 ```
+
+### Setup
+
+| Commande | Description |
+|----------|-------------|
+| `make install` | Clone tous les repos + configure .env |
+| `make setup` | Installation complète (clone, start, migrate) |
+| `make clone-repos` | Clone tous les repos ReTiCh |
+| `make pull-all` | Pull les dernières modifications sur tous les repos |
 
 ### Docker Compose
 
