@@ -1,6 +1,6 @@
 # ReTiCh Infrastructure Makefile
 
-.PHONY: help up down restart logs ps migrate-auth migrate-user migrate-messaging migrate-all rollback-auth rollback-user rollback-messaging clone-repos install setup
+.PHONY: help up down restart rebuild rebuild-dev logs ps migrate-auth migrate-user migrate-messaging migrate-all rollback-auth rollback-user rollback-messaging clone-repos install setup
 
 # GitHub organization
 GITHUB_ORG ?= ReTiCh-Corp
@@ -19,6 +19,8 @@ help:
 	@echo "Docker Compose:"
 	@echo "  make up              - Start all services"
 	@echo "  make up-dev          - Start all services in dev mode (hot-reload)"
+	@echo "  make rebuild         - Rebuild all images from scratch and start"
+	@echo "  make rebuild-dev     - Rebuild all images from scratch and start in dev mode"
 	@echo "  make down            - Stop all services"
 	@echo "  make restart         - Restart all services"
 	@echo "  make logs            - View logs (all services)"
@@ -36,6 +38,10 @@ help:
 	@echo ""
 	@echo "Utilities:"
 	@echo "  make db-shell        - Open PostgreSQL shell"
+	@echo "  make db-auth         - Open shell on retich_auth database"
+	@echo "  make db-users        - Open shell on retich_users database"
+	@echo "  make db-messaging    - Open shell on retich_messaging database"
+	@echo "  make db-all          - List tables in all databases"
 	@echo "  make redis-cli       - Open Redis CLI"
 	@echo "  make clean           - Remove all volumes and data"
 
@@ -106,6 +112,16 @@ up:
 up-dev:
 	docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
 
+rebuild:
+	docker compose down
+	docker compose build --no-cache
+	docker compose up -d
+
+rebuild-dev:
+	docker compose down
+	docker compose -f docker-compose.yml -f docker-compose.dev.yml build --no-cache
+	docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+
 down:
 	docker compose down
 
@@ -166,6 +182,25 @@ migrate-status-messaging:
 # Utility Commands
 db-shell:
 	docker exec -it retich-postgres psql -U $(DB_USER)
+
+db-auth:
+	docker exec -it retich-postgres psql -U $(DB_USER) -d retich_auth
+
+db-users:
+	docker exec -it retich-postgres psql -U $(DB_USER) -d retich_users
+
+db-messaging:
+	docker exec -it retich-postgres psql -U $(DB_USER) -d retich_messaging
+
+db-all:
+	@echo "=== retich_auth ==="
+	@docker exec retich-postgres psql -U $(DB_USER) -d retich_auth -c "\dt"
+	@echo ""
+	@echo "=== retich_users ==="
+	@docker exec retich-postgres psql -U $(DB_USER) -d retich_users -c "\dt"
+	@echo ""
+	@echo "=== retich_messaging ==="
+	@docker exec retich-postgres psql -U $(DB_USER) -d retich_messaging -c "\dt"
 
 redis-cli:
 	docker exec -it retich-redis redis-cli

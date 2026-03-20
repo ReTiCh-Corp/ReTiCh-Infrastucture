@@ -100,6 +100,8 @@ make help  # Afficher toutes les commandes
 |----------|-------------|
 | `make up` | Démarrer tous les services |
 | `make up-dev` | Démarrer en mode développement (hot-reload) |
+| `make rebuild` | Rebuild toutes les images sans cache et redémarrer |
+| `make rebuild-dev` | Rebuild toutes les images sans cache et redémarrer en mode dev |
 | `make down` | Arrêter tous les services |
 | `make restart` | Redémarrer tous les services |
 | `make logs` | Voir les logs |
