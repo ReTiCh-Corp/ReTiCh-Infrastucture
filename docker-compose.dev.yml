@@ -6,13 +6,19 @@ services:
   # MICROSERVICES WITH HOT-RELOAD
   # =============================================================================
   api-gateway:
+    depends_on:
+      auth:
+        condition: service_healthy
     build:
       context: ../ReTiCh-API-Gateway
       dockerfile: Dockerfile.dev
     volumes:
       - ../ReTiCh-API-Gateway:/app
       - api-gateway-tmp:/app/tmp
+      - go-mod-cache:/go/pkg/mod
+      - api-gateway-build-cache:/root/.cache/go-build
     environment:
+      - APP_ENV=development
       - PORT=8080
       - AUTH_SERVICE_URL=http://auth:8081
       - USER_SERVICE_URL=http://user:8083
@@ -20,12 +26,17 @@ services:
       - NATS_URL=nats://nats:4222
       - REDIS_URL=redis:6379
       - LOG_LEVEL=debug
+      - JWKS_URL=http://auth:8081/.well-known/jwks.json
+      - JWT_ISSUER=http://localhost:8081
+      - GOMAXPROCS=2
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/health"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 30s
+    deploy:
+      resources: {}
 
   auth:
     build:
@@ -34,18 +45,23 @@ services:
     volumes:
       - ../ReTiCh-Auth:/app
       - auth-tmp:/app/tmp
+      - go-mod-cache:/go/pkg/mod
+      - auth-build-cache:/root/.cache/go-build
     environment:
       - PORT=8081
       - DATABASE_URL=postgres://retich:retich_secret@postgres:5432/retich_auth?sslmode=disable
       - REDIS_URL=redis:6379
       - JWT_SECRET=dev-secret-key
       - LOG_LEVEL=debug
+      - GOMAXPROCS=2
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:8081/health"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 30s
+    deploy:
+      resources: {}
 
   messaging:
     build:
@@ -54,18 +70,24 @@ services:
     volumes:
       - ../ReTiCh-Messaging:/app
       - messaging-tmp:/app/tmp
+      - go-mod-cache:/go/pkg/mod
+      - messaging-build-cache:/root/.cache/go-build
     environment:
       - PORT=8082
       - NATS_URL=nats://nats:4222
       - REDIS_URL=redis:6379
       - DATABASE_URL=postgres://retich:retich_secret@postgres:5432/retich_messaging?sslmode=disable
+      - USER_SERVICE_URL=http://user:8083
       - LOG_LEVEL=debug
+      - GOMAXPROCS=2
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:8082/health"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 30s
+    deploy:
+      resources: {}
 
   user:
     build:
@@ -74,17 +96,23 @@ services:
     volumes:
       - ../ReTiCh-User:/app
       - user-tmp:/app/tmp
+      - go-mod-cache:/go/pkg/mod
+      - user-build-cache:/root/.cache/go-build
     environment:
       - PORT=8083
       - DATABASE_URL=postgres://retich:retich_secret@postgres:5432/retich_users?sslmode=disable
       - REDIS_URL=redis:6379
       - LOG_LEVEL=debug
+      - AUTO_MIGRATE=true
+      - GOMAXPROCS=2
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:8083/health"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 30s
+    deploy:
+      resources: {}
 
   client:
     build:
@@ -92,12 +120,16 @@ services:
       dockerfile: Dockerfile.dev
     volumes:
       - ../ReTiCh-Client:/app
-      - /app/node_modules
     environment:
-      - VITE_API_URL=http://localhost:8080
+      - VITE_API_BASE_URL=http://localhost:8080
+      # - VITE_AUTH_BASE_URL=https://retich-auth.ashyplant-a8bd2417.francecentral.azurecontainerapps.io/
+      - VITE_AUTH_BASE_URL=http://localhost:8081
+      - VITE_AUTH_REDIRECT_URI=http://localhost:5173/callback
+      - VITE_AUTH_CLIENT_SECRET=798ca07c-6cc9-4dfc-b522-5f215fc09c32
+      - VITE_AUTH_CLIENT_ID=2149a378-89d3-44ca-be44-dfd7e1541ecf
     ports:
       - "5173:5173"
-    command: npm run dev -- --host
+    command: sh -c "npm install && npm run dev -- --host"
 
   # =============================================================================
   # INFRASTRUCTURE (no changes, just remove resource limits for dev)
@@ -127,3 +159,8 @@ volumes:
   auth-tmp:
   messaging-tmp:
   user-tmp:
+  go-mod-cache:
+  api-gateway-build-cache:
+  auth-build-cache:
+  messaging-build-cache:
+  user-build-cache:
