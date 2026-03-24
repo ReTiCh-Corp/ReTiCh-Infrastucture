@@ -54,6 +54,7 @@ services:
       - JWT_SECRET=dev-secret-key
       - LOG_LEVEL=debug
       - GOMAXPROCS=2
+      - RESEND_API_KEY=re_your_api_key_here
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:8081/health"]
       interval: 30s
