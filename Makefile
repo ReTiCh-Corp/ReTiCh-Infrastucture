@@ -1,6 +1,6 @@
 # ReTiCh Infrastructure Makefile
 
-.PHONY: help up down restart rebuild rebuild-dev logs ps migrate-auth migrate-user migrate-messaging migrate-all rollback-auth rollback-user rollback-messaging clone-repos install setup
+.PHONY: help up down restart rebuild rebuild-dev logs ps migrate-auth migrate-user migrate-messaging migrate-all rollback-auth rollback-user rollback-messaging clone-repos install setup rs rs-gateway rs-auth rs-user rs-messaging rs-client
 
 # GitHub organization
 GITHUB_ORG ?= ReTiCh-Corp
@@ -25,6 +25,12 @@ help:
 	@echo "  make restart         - Restart all services"
 	@echo "  make logs            - View logs (all services)"
 	@echo "  make logs-f          - Follow logs (all services)"
+	@echo "  make rs              - Restart all dev services (picks up code changes)"
+	@echo "  make rs-gateway      - Restart API Gateway only"
+	@echo "  make rs-auth         - Restart Auth only"
+	@echo "  make rs-user         - Restart User only"
+	@echo "  make rs-messaging    - Restart Messaging only"
+	@echo "  make rs-client       - Restart Client only"
 	@echo "  make ps              - List running containers"
 	@echo ""
 	@echo "Database Migrations:"
@@ -125,8 +131,29 @@ rebuild-dev:
 down:
 	docker compose down
 
+DC_DEV = docker compose -f docker-compose.yml -f docker-compose.dev.yml
+
 restart:
 	docker compose restart
+
+# Restart dev services (force recreate to pick up code changes)
+rs:
+	$(DC_DEV) up -d --force-recreate api-gateway auth user messaging client
+
+rs-gateway:
+	$(DC_DEV) up -d --force-recreate api-gateway
+
+rs-auth:
+	$(DC_DEV) up -d --force-recreate auth
+
+rs-user:
+	$(DC_DEV) up -d --force-recreate user
+
+rs-messaging:
+	$(DC_DEV) up -d --force-recreate messaging
+
+rs-client:
+	$(DC_DEV) up -d --force-recreate client
 
 logs:
 	docker compose logs
