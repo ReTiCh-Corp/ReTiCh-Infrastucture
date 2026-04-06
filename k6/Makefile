@@ -27,8 +27,10 @@ init:
 .PHONY: start
 start:
 	kubectl delete testrun $(TEST_NAME) -n $(NAMESPACE) --ignore-not-found
-	@sleep 2
+	@sleep 3
 	kubectl apply -f testrun.yaml
+	@echo "Attente du démarrage des pods..."
+	kubectl wait --for=condition=ready pod -l k6_cr=$(TEST_NAME) -n $(NAMESPACE) --timeout=120s
 	@echo "Test en cours... logs :"
 	kubectl logs -f -l k6_cr=$(TEST_NAME) -n $(NAMESPACE) --max-log-requests 10
 
