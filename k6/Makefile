@@ -29,11 +29,10 @@ start:
 	kubectl delete testrun $(TEST_NAME) -n $(NAMESPACE) --ignore-not-found
 	@sleep 3
 	kubectl apply -f testrun.yaml
-	@echo "Attente du démarrage des pods..."
-	@until ! kubectl get pods -l k6_cr=$(TEST_NAME) -n $(NAMESPACE) 2>/dev/null | grep -qE "ContainerCreating|Pending|Init"; do sleep 2; echo "..."; done
-	@sleep 2
+	@echo "Attente du démarrage des pods (30s)..."
+	@sleep 30
 	@echo "Test en cours... logs :"
-	kubectl logs -f -l k6_cr=$(TEST_NAME) -n $(NAMESPACE) --max-log-requests 10
+	kubectl logs -f -l k6_cr=$(TEST_NAME),runner=true -n $(NAMESPACE) --max-log-requests 10
 
 # ─── Installation ────────────────────────────────────────────────────────────
 
