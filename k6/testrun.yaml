@@ -4,18 +4,13 @@ metadata:
   name: retich-load-test
   namespace: k6
 spec:
-  # Nombre de pods k6 qui se partagent la charge.
-  # Avec parallelism: 5 et target: 5000 → chaque pod gère 1000 VUs.
   parallelism: 5
+  paused: false
 
   script:
     configMap:
       name: retich-load-test
       file: load-test.js
-
-  # Envoie les métriques vers Prometheus (remote write)
-  arguments: >-
-    --out experimental-prometheus-rw
 
   runner:
     image: grafana/k6:latest
@@ -27,7 +22,6 @@ spec:
         cpu: "1"
         memory: "512Mi"
     env:
-      # Credentials injectés depuis le Secret
       - name: EMAIL
         valueFrom:
           secretKeyRef:
@@ -43,8 +37,3 @@ spec:
           secretKeyRef:
             name: retich-load-test-env
             key: AUDIENCE
-      # URL Prometheus remote write
-      - name: K6_PROMETHEUS_RW_SERVER_URL
-        value: "http://prometheus-server.monitoring.svc.cluster.local:9090/api/v1/write"
-      - name: K6_PROMETHEUS_RW_TREND_AS_NATIVE_HISTOGRAM
-        value: "true"
