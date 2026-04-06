@@ -30,7 +30,7 @@ start:
 	@sleep 3
 	kubectl apply -f testrun.yaml
 	@echo "Attente du démarrage des pods..."
-	@until kubectl get pods -l k6_cr=$(TEST_NAME) -n $(NAMESPACE) 2>/dev/null | grep -q Running; do sleep 2; echo "..."; done
+	@until kubectl get pods -l k6_cr=$(TEST_NAME) -n $(NAMESPACE) 2>/dev/null | grep -q "1/1"; do sleep 2; echo "..."; done
 	@echo "Test en cours... logs :"
 	kubectl logs -f -l k6_cr=$(TEST_NAME) -n $(NAMESPACE) --max-log-requests 10
 
