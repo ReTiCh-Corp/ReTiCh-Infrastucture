@@ -12,16 +12,25 @@ data:
     const BASE = 'https://retich-api-gateway.purplemoss-0dd0df33.francecentral.azurecontainerapps.io';
 
     export const options = {
+      // shared-iterations est compatible avec le mode distribué du k6 operator
       scenarios: {
+        warmup: {
+          executor: 'constant-vus',
+          vus: 50,
+          duration: '2m',
+          startTime: '0s',
+        },
         load: {
-          executor: 'ramping-vus',
-          stages: [
-            { duration: '2m',  target: 200  },  // montée progressive
-            { duration: '5m',  target: 1000 },  // charge nominale
-            { duration: '3m',  target: 5000 },  // pic (réparti sur parallelism pods)
-            { duration: '2m',  target: 1000 },  // redescente
-            { duration: '1m',  target: 0    },  // arrêt
-          ],
+          executor: 'constant-vus',
+          vus: 200,
+          duration: '5m',
+          startTime: '2m',
+        },
+        peak: {
+          executor: 'constant-vus',
+          vus: 500,
+          duration: '3m',
+          startTime: '7m',
         },
       },
       thresholds: {
