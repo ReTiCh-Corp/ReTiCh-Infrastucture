@@ -42,6 +42,8 @@ services:
     build:
       context: ../ReTiCh-Auth
       dockerfile: Dockerfile.dev
+    ports:
+      - "8089:8089"
     volumes:
       - ../ReTiCh-Auth:/app
       - auth-tmp:/app/tmp
@@ -53,6 +55,7 @@ services:
       - DATABASE_URL=postgres://retich:retich_secret@postgres:5432/retich_auth?sslmode=disable
       - REDIS_URL=redis:6379
       - JWT_SECRET=dev-secret-key
+      - RSA_PRIVATE_KEY=${RSA_PRIVATE_KEY}
       - LOG_LEVEL=debug
       - GOMAXPROCS=2
       - RESEND_API_KEY=re_your_api_key_here
