@@ -3,6 +3,16 @@ TEST_NAME   = retich-load-test
 EMAIL       ?= salamataomohamed7@gmail.com
 PASSWORD    ?= Iman-7814
 AUDIENCE    ?= retich-client
+SCRIPT      = ../../load-test.js
+
+.PHONY: dashboard
+dashboard:
+	k6 run --out web-dashboard \
+		-e EMAIL=$(EMAIL) \
+		-e PASSWORD=$(PASSWORD) \
+		-e AUDIENCE=$(AUDIENCE) \
+		$(SCRIPT)
+	@echo "Dashboard disponible sur http://localhost:5665"
 
 # ─── Commandes principales ───────────────────────────────────────────────────
 
