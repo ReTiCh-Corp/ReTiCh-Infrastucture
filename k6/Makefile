@@ -1,5 +1,36 @@
 NAMESPACE   = k6
 TEST_NAME   = retich-load-test
+EMAIL       ?= salamataomohamed7@gmail.com
+PASSWORD    ?= Iman-7814
+AUDIENCE    ?= retich-client
+
+# ─── Commandes principales ───────────────────────────────────────────────────
+
+.PHONY: init
+init:
+	@echo ">>> Installation de k6 Operator..."
+	helm repo add grafana https://grafana.github.io/helm-charts
+	helm repo update
+	helm install k6-operator grafana/k6-operator -n k6-operator --create-namespace || true
+	@echo ">>> Création du namespace et du ConfigMap..."
+	kubectl apply -f namespace.yaml
+	kubectl apply -f configmap.yaml
+	@echo ">>> Création du secret..."
+	kubectl create secret generic retich-load-test-env \
+		--from-literal=EMAIL=$(EMAIL) \
+		--from-literal=PASSWORD=$(PASSWORD) \
+		--from-literal=AUDIENCE=$(AUDIENCE) \
+		-n $(NAMESPACE) --dry-run=client -o yaml | kubectl apply -f -
+	@echo ""
+	@echo "Setup terminé. Lance le test avec : make start"
+
+.PHONY: start
+start:
+	kubectl delete testrun $(TEST_NAME) -n $(NAMESPACE) --ignore-not-found
+	@sleep 2
+	kubectl apply -f testrun.yaml
+	@echo "Test en cours... logs :"
+	kubectl logs -f -l k6_cr=$(TEST_NAME) -n $(NAMESPACE) --max-log-requests 10
 
 # ─── Installation ────────────────────────────────────────────────────────────
 
