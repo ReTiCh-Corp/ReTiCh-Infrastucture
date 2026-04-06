@@ -1,0 +1,28 @@
+# Charge automatiquement le dashboard k6 officiel dans Grafana.
+# Si tu utilises le Grafana du docker-compose, importe manuellement le dashboard ID 18030.
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: k6-grafana-dashboard
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"   # label reconnu par le sidecar Grafana
+data:
+  k6-dashboard.json: |
+    {
+      "__inputs": [],
+      "__requires": [],
+      "title": "k6 Load Testing Results",
+      "uid": "k6-retich",
+      "tags": ["k6", "load-test"],
+      "panels": [],
+      "schemaVersion": 36,
+      "links": [
+        {
+          "title": "Grafana k6 Dashboard (officiel)",
+          "url": "https://grafana.com/grafana/dashboards/18030",
+          "type": "link"
+        }
+      ]
+    }

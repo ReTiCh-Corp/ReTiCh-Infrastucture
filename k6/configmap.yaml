@@ -1,0 +1,119 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: retich-load-test
+  namespace: k6
+data:
+  load-test.js: |
+    import http from 'k6/http';
+    import { check, sleep, group } from 'k6';
+    import { Trend, Rate, Counter } from 'k6/metrics';
+
+    const BASE = 'https://retich-api-gateway.purplemoss-0dd0df33.francecentral.azurecontainerapps.io';
+
+    export const options = {
+      scenarios: {
+        load: {
+          executor: 'ramping-vus',
+          stages: [
+            { duration: '2m',  target: 200  },  // montée progressive
+            { duration: '5m',  target: 1000 },  // charge nominale
+            { duration: '3m',  target: 5000 },  // pic (réparti sur parallelism pods)
+            { duration: '2m',  target: 1000 },  // redescente
+            { duration: '1m',  target: 0    },  // arrêt
+          ],
+        },
+      },
+      thresholds: {
+        http_req_duration:                        ['p(95)<1000', 'p(99)<2000'],
+        http_req_failed:                          ['rate<0.01'],
+        'group_duration{group:::List conversations}': ['avg<500'],
+        'group_duration{group:::List messages}':      ['avg<500'],
+        'group_duration{group:::Send message}':       ['avg<800'],
+      },
+    };
+
+    const loginDuration = new Trend('login_duration');
+    const messagesSent  = new Counter('messages_sent');
+    const authFailRate  = new Rate('auth_failures');
+
+    export function setup() {
+      const email    = __ENV.EMAIL;
+      const password = __ENV.PASSWORD;
+      const audience = __ENV.AUDIENCE || 'retich-client';
+
+      const res = http.post(
+        `${BASE}/api/v1/auth/login`,
+        JSON.stringify({ email, password, audience }),
+        { headers: { 'Content-Type': 'application/json' } },
+      );
+
+      loginDuration.add(res.timings.duration);
+
+      const ok = check(res, {
+        'login 200':       (r) => r.status === 200,
+        'token présent':   (r) => r.json('data.access_token') !== null,
+      });
+
+      if (!ok) {
+        console.error(`Login échoué: ${res.status} — ${res.body}`);
+        return { token: null };
+      }
+
+      return { token: res.json('data.access_token') };
+    }
+
+    export default function (data) {
+      if (!data.token) return;
+
+      const headers = {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${data.token}`,
+      };
+
+      let conversationId = null;
+
+      group('List conversations', () => {
+        const res = http.get(`${BASE}/api/v1/conversations`, { headers });
+        check(res, { 'conversations 200': (r) => r.status === 200 });
+        authFailRate.add(res.status === 401);
+        const convs = res.json('data');
+        if (convs && convs.length > 0) conversationId = convs[0].id;
+      });
+
+      sleep(0.5);
+
+      if (!conversationId) {
+        sleep(1);
+        return;
+      }
+
+      group('List messages', () => {
+        const res = http.get(
+          `${BASE}/api/v1/conversations/${conversationId}/messages?limit=20`,
+          { headers },
+        );
+        check(res, { 'messages 200': (r) => r.status === 200 });
+      });
+
+      sleep(0.5);
+
+      if (__VU % 3 === 0) {
+        group('Send message', () => {
+          const res = http.post(
+            `${BASE}/api/v1/conversations/${conversationId}/messages`,
+            JSON.stringify({ content: `Load test — VU ${__VU} iter ${__ITER}` }),
+            { headers },
+          );
+          const ok = check(res, { 'send message 201': (r) => r.status === 201 });
+          if (ok) messagesSent.add(1);
+        });
+        sleep(0.5);
+      }
+
+      sleep(Math.random() * 2 + 1);
+    }
+
+    export function teardown(data) {
+      console.log(`Test terminé — token utilisé: ${data.token ? 'oui' : 'non'}`);
+    }

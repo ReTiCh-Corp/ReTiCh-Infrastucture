@@ -1,0 +1,34 @@
+# Helm values pour Prometheus avec remote write activé
+# helm install prometheus prometheus-community/prometheus \
+#   -n monitoring --create-namespace \
+#   -f k6/prometheus-values.yaml
+
+server:
+  remoteWrite:
+    enabled: true
+
+# Rétention 7 jours (suffisant pour les tests de charge)
+server:
+  retention: "7d"
+  persistentVolume:
+    size: 10Gi
+
+# Désactiver les composants inutiles pour alléger
+alertmanager:
+  enabled: false
+prometheus-pushgateway:
+  enabled: false
+kube-state-metrics:
+  enabled: false
+prometheus-node-exporter:
+  enabled: false
+
+serverFiles:
+  prometheus.yml:
+    global:
+      scrape_interval: 15s
+    scrape_configs:
+      - job_name: k6
+        static_configs:
+          - targets: []
+        # Les métriques arrivent via remote write, pas en scrape
