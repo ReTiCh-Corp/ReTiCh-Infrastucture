@@ -5,6 +5,17 @@ PASSWORD    ?= Iman-7814
 AUDIENCE    ?= retich-client
 SCRIPT      = ../../load-test.js
 
+.PHONY: grafana-up
+grafana-up:
+	docker compose -f docker-compose.monitoring.yml up -d
+	@echo ""
+	@echo "Grafana  → http://localhost:3000  (admin / retich)"
+	@echo "Prometheus → http://localhost:9090"
+
+.PHONY: grafana-down
+grafana-down:
+	docker compose -f docker-compose.monitoring.yml down
+
 .PHONY: dashboard
 dashboard:
 	k6 run --out web-dashboard \
@@ -13,6 +24,18 @@ dashboard:
 		-e AUDIENCE=$(AUDIENCE) \
 		$(SCRIPT)
 	@echo "Dashboard disponible sur http://localhost:5665"
+
+.PHONY: grafana-test
+grafana-test:
+	k6 run \
+		--out experimental-prometheus-rw \
+		-e K6_PROMETHEUS_RW_SERVER_URL=http://localhost:9090/api/v1/write \
+		-e EMAIL=$(EMAIL) \
+		-e PASSWORD=$(PASSWORD) \
+		-e AUDIENCE=$(AUDIENCE) \
+		$(SCRIPT)
+	@echo "Résultats dans Grafana → http://localhost:3000"
+	@echo "Importe le dashboard ID 18030 si pas encore fait"
 
 # ─── Commandes principales ───────────────────────────────────────────────────
 
